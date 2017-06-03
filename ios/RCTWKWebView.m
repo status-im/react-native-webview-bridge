@@ -40,22 +40,22 @@ NSString *const RCTWebViewBridgeSchema = @"wvb";
 {
     if ((self = [super initWithFrame:frame])) {
         super.backgroundColor = [UIColor clearColor];
-        
+
         _automaticallyAdjustContentInsets = YES;
         _contentInset = UIEdgeInsetsZero;
-        
+
         WKWebViewConfiguration* config = [[WKWebViewConfiguration alloc] init];
         WKUserContentController* userController = [[WKUserContentController alloc]init];
         [userController addScriptMessageHandler:self name:@"reactNative"];
         [userController addScriptMessageHandler:self name:@"sendRequest"];
         config.userContentController = userController;
-        
+
         WKUserScript* bridgeScript = [[WKUserScript alloc]
                                       initWithSource: [self webViewBridgeScript]
                                       injectionTime:WKUserScriptInjectionTimeAtDocumentStart
                                       forMainFrameOnly:NO];
         [config.userContentController addUserScript:bridgeScript];
-        
+
         _webView = [[WKWebView alloc] initWithFrame:self.bounds configuration:config];
         _webView.UIDelegate = self;
         _webView.navigationDelegate = self;
@@ -77,7 +77,7 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
             request = mutableRequest;
         }
     }
-    
+
     [_webView loadRequest:request];
 }
 
@@ -124,11 +124,11 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
     NSString *callbackId = [responseDic objectForKey:@"callbackId"];
     NSString *host = [responseDic objectForKey:@"host"];
     NSString *payload = [responseDic objectForKey:@"payload"];
-    
+
     NSData *postData = [payload dataUsingEncoding:NSASCIIStringEncoding allowLossyConversion:YES];
-    
+
     NSString *postLength = [NSString stringWithFormat:@"%d", [postData length]];
-    
+
     NSMutableURLRequest *request = [[NSMutableURLRequest alloc] init];
     [request setURL:[NSURL URLWithString:host]];
     [request setHTTPMethod:@"POST"];
@@ -136,7 +136,7 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
     [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
     [request setHTTPBody:postData];
     [request setTimeoutInterval:310];
-    
+
     WVURLConnection *urlConn = [WVURLConnection alloc];
     [urlConn setWebView:_webView];
     [urlConn setCallbackId:callbackId];
@@ -154,7 +154,7 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
         }
     }());
                                          );
-    
+
     NSString *command = [NSString stringWithFormat: format, message];
     [_webView evaluateJavaScript:command completionHandler:nil];
 }
@@ -165,7 +165,7 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
                             initWithSource:js
                             injectionTime:WKUserScriptInjectionTimeAtDocumentStart
                             forMainFrameOnly:NO];
-    
+
     [_webView.configuration.userContentController addUserScript:script];
 }
 
@@ -173,7 +173,7 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
 {
     if (![_source isEqualToDictionary:source]) {
         _source = [source copy];
-        
+
         // Check for a static html source first
         NSString *html = [RCTConvert NSString:source[@"html"]];
         if (html) {
@@ -184,7 +184,7 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
             [_webView loadHTMLString:html baseURL:baseURL];
             return;
         }
-        
+
         NSURLRequest *request = [RCTConvert NSURLRequest:source];
         // Because of the way React works, as pages redirect, we actually end up
         // passing the redirect urls back here, so we ignore them if trying to load
@@ -237,7 +237,7 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
                                                                                                    @"canGoBack": @(_webView.canGoBack),
                                                                                                    @"canGoForward" : @(_webView.canGoForward),
                                                                                                    }];
-    
+
     return event;
 }
 
@@ -276,23 +276,23 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
     NSURLRequest *request = navigationAction.request;
     NSURL* url = request.URL;
     NSString* scheme = url.scheme;
-    
+
     BOOL isJSNavigation = [scheme isEqualToString:RCTJSNavigationScheme];
     if (!isJSNavigation && [request.URL.scheme isEqualToString:RCTWebViewBridgeSchema]) {
         [webView evaluateJavaScript:@"WebViewBridge.__fetch__()"
                   completionHandler:^(id result, NSError *error){
-                      
+
                       NSLog(@"WWW __fetch");
                       NSMutableDictionary<NSString *, id> *onBridgeMessageEvent = [[NSMutableDictionary alloc]initWithDictionary:@{
                                                                                                                                    @"messages": [self stringArrayJsonToArray: [NSString stringWithFormat:@"%@", result]]
                                                                                                                                    }];
-                      
+
                       _onBridgeMessage(onBridgeMessageEvent);
                   }];
-        
+
         return decisionHandler(WKNavigationActionPolicyCancel);
     }
-    
+
     // skip this for the JS Navigation handler
     if (!isJSNavigation && _onShouldStartLoadWithRequest) {
         NSMutableDictionary<NSString *, id> *event = [self baseEvent];
@@ -306,7 +306,7 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
             return decisionHandler(WKNavigationActionPolicyCancel);
         }
     }
-    
+
     if (_onLoadingStart) {
         // We have this check to filter out iframe requests and whatnot
         BOOL isTopFrame = [url isEqual:request.mainDocumentURL];
@@ -319,8 +319,14 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
             _onLoadingStart(event);
         }
     }
-    
+
     if (isJSNavigation) {
+        decisionHandler(WKNavigationActionPolicyCancel);
+    }
+    // Intercept target=_blank and other links that want to open in a new window
+    // and deal with them in the WebView if possible
+    else if (!navigationAction.targetFrame) {
+        [self loadRequest:navigationAction.request];
         decisionHandler(WKNavigationActionPolicyCancel);
     }
     else if (navigationAction.targetFrame && ([scheme isEqualToString:@"http"] || [scheme isEqualToString:@"https"])) {
@@ -344,7 +350,7 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
             // http://stackoverflow.com/questions/1024748/how-do-i-fix-nsurlerrordomain-error-999-in-iphone-3-0-os
             return;
         }
-        
+
         NSMutableDictionary<NSString *, id> *event = [self baseEvent];
         [event addEntriesFromDictionary:@{
                                           @"domain": error.domain,
@@ -374,7 +380,7 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
 
 - (void)webView:(WKWebView *)webView runJavaScriptAlertPanelWithMessage:(NSString *)message initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(void))completionHandler {
     UIAlertController *alertController = [UIAlertController alertControllerWithTitle:message message:nil preferredStyle:UIAlertControllerStyleAlert];
-    
+
     [alertController addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"Close", nil) style:UIAlertActionStyleCancel handler:^(UIAlertAction *action) {
         completionHandler();
     }]];
@@ -383,7 +389,7 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
 }
 
 - (void)webView:(WKWebView *)webView runJavaScriptConfirmPanelWithMessage:(NSString *)message initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(BOOL))completionHandler {
-    
+
     // TODO We have to think message to confirm "YES"
     UIAlertController *alertController = [UIAlertController alertControllerWithTitle:message message:nil preferredStyle:UIAlertControllerStyleAlert];
     [alertController addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"OK", nil) style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
@@ -397,17 +403,17 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
 }
 
 - (void)webView:(WKWebView *)webView runJavaScriptTextInputPanelWithPrompt:(NSString *)prompt defaultText:(NSString *)defaultText initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(NSString *))completionHandler {
-    
+
     UIAlertController *alertController = [UIAlertController alertControllerWithTitle:prompt message:nil preferredStyle:UIAlertControllerStyleAlert];
     [alertController addTextFieldWithConfigurationHandler:^(UITextField *textField) {
         textField.text = defaultText;
     }];
-    
+
     [alertController addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"OK", nil) style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
         NSString *input = ((UITextField *)alertController.textFields.firstObject).text;
         completionHandler(input);
     }]];
-    
+
     [alertController addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"Cancel", nil) style:UIAlertActionStyleCancel handler:^(UIAlertAction *action) {
         completionHandler(nil);
     }]];
@@ -431,32 +437,32 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
     // NSString *webViewBridgeScriptContent = [NSString stringWithContentsOfFile:webViewBridgeScriptFile
     //                                                                  encoding:NSUTF8StringEncoding
     //                                                                     error:nil];
-    
+
     return NSStringMultiline(
                              (function (window) {
         'use strict';
-        
+
         //Make sure that if WebViewBridge already in scope we don't override it.
         if (window.WebViewBridge) {
             return;
         }
-        
+
         var RNWBSchema = 'wvb';
         var sendQueue = [];
         var receiveQueue = [];
         var doc = window.document;
         var customEvent = doc.createEvent('Event');
-        
+
         function callFunc(func, message) {
             if ('function' === typeof func) {
                 func(message);
             }
         }
-        
+
         function signalNative() {
             window.location = RNWBSchema + '://message' + new Date().getTime();
         }
-        
+
         //I made the private function ugly signiture so user doesn't called them accidently.
         //if you do, then I have nothing to say. :(
         var WebViewBridge = {
@@ -469,10 +475,10 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
             //since our sendQueue array only contains string, and our connection to native
             //can only accept string, we need to convert array of strings into single string.
             var messages = JSON.stringify(sendQueue);
-            
+
             //we make sure that sendQueue is resets
             sendQueue = [];
-            
+
             //return the messages back to native side.
             return messages;
         },
@@ -483,7 +489,7 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
                 callFunc(WebViewBridge.onError, "message is type '" + typeof message + "', and it needs to be string");
                 return;
             }
-            
+
             //we queue the messages to make sure that native can collects all of them in one shot.
             sendQueue.push(message);
             //signal the objective-c that there is a message in the queue
@@ -492,9 +498,9 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
         onMessage: null,
         onError: null
         };
-        
+
         window.WebViewBridge = WebViewBridge;
-        
+
         //dispatch event
         customEvent.initEvent('WebViewBridge', true, true);
         doc.dispatchEvent(customEvent);
