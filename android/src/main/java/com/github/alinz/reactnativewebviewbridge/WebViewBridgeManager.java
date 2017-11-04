@@ -386,9 +386,13 @@ public class WebViewBridgeManager extends ReactWebViewManager {
                     url.startsWith("file://")) {
                 return false;
             } else {
-                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                view.getContext().startActivity(intent);
+                try {
+                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    view.getContext().startActivity(intent);
+                } catch (android.content.ActivityNotFoundException e) {
+                    Log.d(TAG, "Ignoring " + url + ": " + e.toString());
+                }
                 return true;
             }
         }
