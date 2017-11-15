@@ -500,7 +500,7 @@ public class WebViewBridgeManager extends ReactWebViewManager {
         ((ReactWebView) webView).cleanupCallbacksAndDestroy();
     }
 
-    private static void dispatchEvent(WebView webView, Event event) {
+    protected static void dispatchEvent(WebView webView, Event event) {
         ReactContext reactContext = (ReactContext) webView.getContext();
         EventDispatcher eventDispatcher =
                 reactContext.getNativeModule(UIManagerModule.class).getEventDispatcher();

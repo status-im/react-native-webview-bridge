@@ -33,7 +33,6 @@ public class WebViewBridgePackage implements ReactPackage {
         );
     }
 
-    @Override
     public List<Class<? extends JavaScriptModule>> createJSModules() {
         return Arrays.asList();
     }
