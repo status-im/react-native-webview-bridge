@@ -12,7 +12,6 @@ apply plugin: 'com.android.library'
 
 android {
     compileSdkVersion 24
-    buildToolsVersion "23.0.2"
 
     defaultConfig {
         minSdkVersion 16
@@ -30,6 +29,6 @@ repositories {
 }
 
 dependencies {
-    compile 'status-im:function:0.0.1'
-    compile 'com.facebook.react:react-native:+'
+    api 'status-im:function:0.0.1'
+    api 'com.facebook.react:react-native:+'
 }
