@@ -1,6 +1,8 @@
 package com.github.alinz.reactnativewebviewbridge;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
@@ -37,6 +39,9 @@ import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.util.Map;
 import im.status.ethereum.function.Function;
+import android.support.v4.content.ContextCompat;
+import android.support.v4.app.ActivityCompat;
+
 
 import static okhttp3.internal.Util.UTF_8;
 
@@ -47,6 +52,7 @@ public class WebViewBridgeManager extends ReactWebViewManager {
 
     private static final int COMMAND_SEND_TO_BRIDGE = 101;
     public static final int GEO_PERMISSIONS_GRANTED = 103;
+    private static PermissionRequest cameraRequest;
 
     private static final String TAG = "WebViewBridgeManager";
 
@@ -112,6 +118,34 @@ public class WebViewBridgeManager extends ReactWebViewManager {
             if (callback != null) {
                 callback.invoke(origin, true, false);
             }
+        }
+
+        @Override
+        public void onPermissionRequest(PermissionRequest request) {
+            for (String permission : request.getResources()) {
+                if (permission.equals(PermissionRequest.RESOURCE_VIDEO_CAPTURE)) {
+                    int permissionCheck = ContextCompat.checkSelfPermission(
+                            reactNativeContext.getCurrentActivity(),
+                            Manifest.permission.CAMERA
+                    );
+                    if (permissionCheck == PackageManager.PERMISSION_GRANTED) {
+                        request.grant(request.getResources());
+                    } else {
+                        cameraRequest = request;
+                        ActivityCompat.requestPermissions(
+                                reactNativeContext.getCurrentActivity(),
+                                new String[]{Manifest.permission.CAMERA},
+                                0);
+                    }
+                }
+            }
+        }
+    }
+
+    public static void greantAccess() {
+        if (cameraRequest != null) {
+            cameraRequest.grant(cameraRequest.getResources());
+            cameraRequest = null;
         }
     }
 
