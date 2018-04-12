@@ -466,20 +466,29 @@ public class WebViewBridgeManager extends ReactWebViewManager {
         }
 
         @Override
-        public boolean shouldOverrideUrlLoading(WebView view, String url) {
-            if (url.startsWith("http://") || url.startsWith("https://") ||
-                    url.startsWith("file://")) {
+        public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+            if (request == null || view == null) {
                 return false;
-            } else {
-                try {
-                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    view.getContext().startActivity(intent);
-                } catch (android.content.ActivityNotFoundException e) {
-                    Log.d(TAG, "Ignoring " + url + ": " + e.toString());
-                }
-                return true;
             }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+
+                /*
+                 * In order to follow redirects properly, we return null in interceptRequest().
+                 * Doing this breaks the web3 injection on the resulting page, so we have to reload to
+                 * make sure web3 is available.
+                 * */
+
+                if (request.isForMainFrame() && request.isRedirect()) {
+                    view.loadUrl(request.getUrl().toString());
+                    return true;
+                }
+            }
+
+            /*
+             * API < 24: TODO: implement based on https://github.com/toshiapp/toshi-android-client/blob/f4840d3d24ff60223662eddddceca8586a1be8bb/app/src/main/java/com/toshi/view/activity/webView/ToshiWebClient.kt#L99
+             * */
+            return super.shouldOverrideUrlLoading(view, request);
         }
 
         @Override
@@ -534,6 +543,11 @@ public class WebViewBridgeManager extends ReactWebViewManager {
             event.putBoolean("canGoBack", webView.canGoBack());
             event.putBoolean("canGoForward", webView.canGoForward());
             return event;
+        }
+
+        @Override
+        public WebResourceResponse shouldInterceptRequest(WebView view, String url) {
+            return null;
         }
 
         @Override
