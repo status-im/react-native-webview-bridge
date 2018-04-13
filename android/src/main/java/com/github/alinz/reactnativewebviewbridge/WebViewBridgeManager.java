@@ -232,43 +232,45 @@ public class WebViewBridgeManager extends ReactWebViewManager {
         webView.addJavascriptInterface(bridge, "StatusBridge");
         webView.setStatusBridge(bridge);
 
-        ServiceWorkerController swController = ServiceWorkerController.getInstance();
-        swController.setServiceWorkerClient(new ServiceWorkerClient() {
-            @Override
-            public WebResourceResponse shouldInterceptRequest(WebResourceRequest request) {
-                Uri url = request.getUrl();
-                String urlStr = url.toString();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            ServiceWorkerController swController = ServiceWorkerController.getInstance();
+            swController.setServiceWorkerClient(new ServiceWorkerClient() {
+                @Override
+                public WebResourceResponse shouldInterceptRequest(WebResourceRequest request) {
+                    Uri url = request.getUrl();
+                    String urlStr = url.toString();
 
-                if (urlStr == null || urlStr.trim().equals("") || !(urlStr.startsWith("http") && !urlStr.startsWith("www")) || urlStr.contains("|")) {
-                    return super.shouldInterceptRequest(request);
-                }
-
-                try {
-                    Request req = new Request.Builder()
-                            .url(urlStr)
-                            .header("User-Agent", userAgent)
-                            .build();
-
-                    Response response = httpClient.newCall(req).execute();
-
-                    if (response.isRedirect() || !response.headers("Content-Type").get(0).equals("text/html")) {
+                    if (urlStr == null || urlStr.trim().equals("") || !(urlStr.startsWith("http") && !urlStr.startsWith("www")) || urlStr.contains("|")) {
                         return super.shouldInterceptRequest(request);
                     }
 
-                    InputStream is = response.body().byteStream();
-                    MediaType contentType = response.body().contentType();
-                    Charset charset = contentType != null ? contentType.charset(UTF_8) : UTF_8;
+                    try {
+                        Request req = new Request.Builder()
+                                .url(urlStr)
+                                .header("User-Agent", userAgent)
+                                .build();
 
-                    if (response.code() == 200) {
-                        is = new InputStreamWithInjectedJS(is, ((ReactWebView) webView).injectedOnStartLoadingJS, charset);
+                        Response response = httpClient.newCall(req).execute();
+
+                        if (response.isRedirect() || !response.headers("Content-Type").get(0).equals("text/html")) {
+                            return super.shouldInterceptRequest(request);
+                        }
+
+                        InputStream is = response.body().byteStream();
+                        MediaType contentType = response.body().contentType();
+                        Charset charset = contentType != null ? contentType.charset(UTF_8) : UTF_8;
+
+                        if (response.code() == 200) {
+                            is = new InputStreamWithInjectedJS(is, ((ReactWebView) webView).injectedOnStartLoadingJS, charset);
+                        }
+
+                        return new WebResourceResponse("text/html", charset.name(), is);
+                    } catch (IOException e) {
+                        return new WebResourceResponse("text/html", "UTF-8", null);
                     }
-
-                    return new WebResourceResponse("text/html", charset.name(), is);
-                } catch (IOException e) {
-                    return new WebResourceResponse("text/html", "UTF-8", null);
                 }
-            }
-        });
+            });
+        }
 
         return webView;
     }
