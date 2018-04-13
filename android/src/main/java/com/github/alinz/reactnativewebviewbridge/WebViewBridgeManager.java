@@ -64,7 +64,7 @@ public class WebViewBridgeManager extends ReactWebViewManager {
 
     private WebViewConfig mWebViewConfig;
     private static ReactApplicationContext reactNativeContext;
-    private OkHttpClient client;
+    private OkHttpClient httpClient;
     private static boolean debug;
     Function<String, String> callRPC;
 
@@ -73,7 +73,7 @@ public class WebViewBridgeManager extends ReactWebViewManager {
         this.debug = debug;
         this.callRPC = callRPC;
         Builder b = new Builder();
-        client = b
+        httpClient = b
                 .followRedirects(false)
                 .followSslRedirects(false)
                 .build();
@@ -204,7 +204,7 @@ public class WebViewBridgeManager extends ReactWebViewManager {
 
     @Override
     protected WebView createViewInstance(ThemedReactContext reactContext) {
-        ReactWebView webView = new ReactWebView(reactContext);
+        final ReactWebView webView = new ReactWebView(reactContext);
         userAgent = webView.getSettings().getUserAgentString();
         reactContext.addLifecycleEventListener(webView);
         mWebViewConfig.configWebView(webView);
@@ -231,6 +231,44 @@ public class WebViewBridgeManager extends ReactWebViewManager {
         StatusBridge bridge = new StatusBridge(reactContext, webView, this.callRPC);
         webView.addJavascriptInterface(bridge, "StatusBridge");
         webView.setStatusBridge(bridge);
+
+        ServiceWorkerController swController = ServiceWorkerController.getInstance();
+        swController.setServiceWorkerClient(new ServiceWorkerClient() {
+            @Override
+            public WebResourceResponse shouldInterceptRequest(WebResourceRequest request) {
+                Uri url = request.getUrl();
+                String urlStr = url.toString();
+
+                if (urlStr == null || urlStr.trim().equals("") || !(urlStr.startsWith("http") && !urlStr.startsWith("www")) || urlStr.contains("|")) {
+                    return super.shouldInterceptRequest(request);
+                }
+
+                try {
+                    Request req = new Request.Builder()
+                            .url(urlStr)
+                            .header("User-Agent", userAgent)
+                            .build();
+
+                    Response response = httpClient.newCall(req).execute();
+
+                    if (response.isRedirect() || !response.headers("Content-Type").get(0).equals("text/html")) {
+                        return super.shouldInterceptRequest(request);
+                    }
+
+                    InputStream is = response.body().byteStream();
+                    MediaType contentType = response.body().contentType();
+                    Charset charset = contentType != null ? contentType.charset(UTF_8) : UTF_8;
+
+                    if (response.code() == 200) {
+                        is = new InputStreamWithInjectedJS(is, ((ReactWebView) webView).injectedOnStartLoadingJS, charset);
+                    }
+
+                    return new WebResourceResponse("text/html", charset.name(), is);
+                } catch (IOException e) {
+                    return new WebResourceResponse("text/html", "UTF-8", null);
+                }
+            }
+        });
 
         return webView;
     }
@@ -571,7 +609,7 @@ public class WebViewBridgeManager extends ReactWebViewManager {
                         .header("User-Agent", userAgent)
                         .build();
 
-                Response response = client.newCall(req).execute();
+                Response response = httpClient.newCall(req).execute();
                 Log.d(TAG, "response headers " + response.headers().toString());
                 Log.d(TAG, "response code " + response.code());
                 Log.d(TAG, "response suc " + response.isSuccessful());
