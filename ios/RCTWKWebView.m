@@ -319,7 +319,7 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
     if (isJSNavigation) {
         decisionHandler(WKNavigationActionPolicyCancel);
     }
-    else if (navigationAction.targetFrame && ([scheme isEqualToString:@"http"] || [scheme isEqualToString:@"https"])) {
+    else if ([scheme isEqualToString:@"http"] || [scheme isEqualToString:@"https"]) {
         decisionHandler(WKNavigationActionPolicyAllow);
     }
     else {
