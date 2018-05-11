@@ -64,7 +64,7 @@ public class WebViewBridgeManager extends ReactWebViewManager {
 
     private WebViewConfig mWebViewConfig;
     private static ReactApplicationContext reactNativeContext;
-    private OkHttpClient client;
+    private OkHttpClient httpClient;
     private static boolean debug;
     Function<String, String> callRPC;
 
@@ -73,7 +73,7 @@ public class WebViewBridgeManager extends ReactWebViewManager {
         this.debug = debug;
         this.callRPC = callRPC;
         Builder b = new Builder();
-        client = b
+        httpClient = b
                 .followRedirects(false)
                 .followSslRedirects(false)
                 .build();
@@ -204,7 +204,7 @@ public class WebViewBridgeManager extends ReactWebViewManager {
 
     @Override
     protected WebView createViewInstance(ThemedReactContext reactContext) {
-        ReactWebView webView = new ReactWebView(reactContext);
+        final ReactWebView webView = new ReactWebView(reactContext);
         userAgent = webView.getSettings().getUserAgentString();
         reactContext.addLifecycleEventListener(webView);
         mWebViewConfig.configWebView(webView);
@@ -231,6 +231,46 @@ public class WebViewBridgeManager extends ReactWebViewManager {
         StatusBridge bridge = new StatusBridge(reactContext, webView, this.callRPC);
         webView.addJavascriptInterface(bridge, "StatusBridge");
         webView.setStatusBridge(bridge);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            ServiceWorkerController swController = ServiceWorkerController.getInstance();
+            swController.setServiceWorkerClient(new ServiceWorkerClient() {
+                @Override
+                public WebResourceResponse shouldInterceptRequest(WebResourceRequest request) {
+                    Uri url = request.getUrl();
+                    String urlStr = url.toString();
+
+                    if (urlStr == null || urlStr.trim().equals("") || !(urlStr.startsWith("http") && !urlStr.startsWith("www")) || urlStr.contains("|")) {
+                        return super.shouldInterceptRequest(request);
+                    }
+
+                    try {
+                        Request req = new Request.Builder()
+                                .url(urlStr)
+                                .header("User-Agent", userAgent)
+                                .build();
+
+                        Response response = httpClient.newCall(req).execute();
+
+                        if (response.isRedirect() || !response.headers("Content-Type").get(0).equals("text/html")) {
+                            return super.shouldInterceptRequest(request);
+                        }
+
+                        InputStream is = response.body().byteStream();
+                        MediaType contentType = response.body().contentType();
+                        Charset charset = contentType != null ? contentType.charset(UTF_8) : UTF_8;
+
+                        if (response.code() == 200) {
+                            is = new InputStreamWithInjectedJS(is, ((ReactWebView) webView).injectedOnStartLoadingJS, charset);
+                        }
+
+                        return new WebResourceResponse("text/html", charset.name(), is);
+                    } catch (IOException e) {
+                        return new WebResourceResponse("text/html", "UTF-8", null);
+                    }
+                }
+            });
+        }
 
         return webView;
     }
@@ -466,20 +506,29 @@ public class WebViewBridgeManager extends ReactWebViewManager {
         }
 
         @Override
-        public boolean shouldOverrideUrlLoading(WebView view, String url) {
-            if (url.startsWith("http://") || url.startsWith("https://") ||
-                    url.startsWith("file://")) {
+        public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+            if (request == null || view == null) {
                 return false;
-            } else {
-                try {
-                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    view.getContext().startActivity(intent);
-                } catch (android.content.ActivityNotFoundException e) {
-                    Log.d(TAG, "Ignoring " + url + ": " + e.toString());
-                }
-                return true;
             }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+
+                /*
+                 * In order to follow redirects properly, we return null in interceptRequest().
+                 * Doing this breaks the web3 injection on the resulting page, so we have to reload to
+                 * make sure web3 is available.
+                 * */
+
+                if (request.isForMainFrame() && request.isRedirect()) {
+                    view.loadUrl(request.getUrl().toString());
+                    return true;
+                }
+            }
+
+            /*
+             * API < 24: TODO: implement based on https://github.com/toshiapp/toshi-android-client/blob/f4840d3d24ff60223662eddddceca8586a1be8bb/app/src/main/java/com/toshi/view/activity/webView/ToshiWebClient.kt#L99
+             * */
+            return super.shouldOverrideUrlLoading(view, request);
         }
 
         @Override
@@ -537,6 +586,11 @@ public class WebViewBridgeManager extends ReactWebViewManager {
         }
 
         @Override
+        public WebResourceResponse shouldInterceptRequest(WebView view, String url) {
+            return null;
+        }
+
+        @Override
         public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
             String urlStr = request.getUrl().toString();
             Uri url = request.getUrl();
@@ -557,7 +611,7 @@ public class WebViewBridgeManager extends ReactWebViewManager {
                         .header("User-Agent", userAgent)
                         .build();
 
-                Response response = client.newCall(req).execute();
+                Response response = httpClient.newCall(req).execute();
                 Log.d(TAG, "response headers " + response.headers().toString());
                 Log.d(TAG, "response code " + response.code());
                 Log.d(TAG, "response suc " + response.isSuccessful());
