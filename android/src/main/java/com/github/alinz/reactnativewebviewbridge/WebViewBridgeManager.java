@@ -1,6 +1,8 @@
 package com.github.alinz.reactnativewebviewbridge;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
@@ -35,8 +37,12 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.Charset;
+import java.util.HashMap;
 import java.util.Map;
 import im.status.ethereum.function.Function;
+import android.support.v4.content.ContextCompat;
+import android.support.v4.app.ActivityCompat;
+
 
 import static okhttp3.internal.Util.UTF_8;
 
@@ -47,6 +53,12 @@ public class WebViewBridgeManager extends ReactWebViewManager {
 
     private static final int COMMAND_SEND_TO_BRIDGE = 101;
     public static final int GEO_PERMISSIONS_GRANTED = 103;
+    private static Map<Integer, PermissionRequest> permissionRequest;
+
+    private static final int CAMERA_PERMISSIONS_REQUEST = 0;
+    private static final int MIDI_SYSEX_PERMISSIONS_REQUEST = 1;
+    private static final int MEDIA_ID_PERMISSIONS_REQUEST = 2;
+    private static final int AUDIO_PERMISSIONS_REQUEST = 3;
 
     private static final String TAG = "WebViewBridgeManager";
 
@@ -65,6 +77,8 @@ public class WebViewBridgeManager extends ReactWebViewManager {
                 .followRedirects(false)
                 .followSslRedirects(false)
                 .build();
+
+        permissionRequest = new HashMap<>();
         mWebViewConfig = new WebViewConfig() {
             public void configWebView(WebView webView) {
             }
@@ -112,6 +126,77 @@ public class WebViewBridgeManager extends ReactWebViewManager {
             if (callback != null) {
                 callback.invoke(origin, true, false);
             }
+        }
+
+        @Override
+        public void onPermissionRequest(PermissionRequest request) {
+            for (String permission : request.getResources()) {
+                if (permission.equals(PermissionRequest.RESOURCE_VIDEO_CAPTURE)) {
+                    int permissionCheck = ContextCompat.checkSelfPermission(
+                            reactNativeContext.getCurrentActivity(),
+                            Manifest.permission.CAMERA
+                    );
+                    if (permissionCheck == PackageManager.PERMISSION_GRANTED) {
+                        request.grant(request.getResources());
+                    } else {
+                        permissionRequest.put(CAMERA_PERMISSIONS_REQUEST, request);
+                        ActivityCompat.requestPermissions(
+                                reactNativeContext.getCurrentActivity(),
+                                new String[]{Manifest.permission.CAMERA},
+                                CAMERA_PERMISSIONS_REQUEST);
+                    }
+                } else if (permission.equals(PermissionRequest.RESOURCE_MIDI_SYSEX)) {
+                    int permissionCheck = ContextCompat.checkSelfPermission(
+                            reactNativeContext.getCurrentActivity(),
+                            Manifest.permission.BIND_MIDI_DEVICE_SERVICE
+                    );
+                    if (permissionCheck == PackageManager.PERMISSION_GRANTED) {
+                        request.grant(request.getResources());
+                    } else {
+                        permissionRequest.put(MIDI_SYSEX_PERMISSIONS_REQUEST, request);
+                        ActivityCompat.requestPermissions(
+                                reactNativeContext.getCurrentActivity(),
+                                new String[]{Manifest.permission.BIND_MIDI_DEVICE_SERVICE},
+                                MIDI_SYSEX_PERMISSIONS_REQUEST);
+                    }
+                } else if (permission.equals(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) {
+                    int permissionCheck = ContextCompat.checkSelfPermission(
+                            reactNativeContext.getCurrentActivity(),
+                            Manifest.permission.RECORD_AUDIO
+                    );
+                    if (permissionCheck == PackageManager.PERMISSION_GRANTED) {
+                        request.grant(request.getResources());
+                    } else {
+                        permissionRequest.put(AUDIO_PERMISSIONS_REQUEST, request);
+                        ActivityCompat.requestPermissions(
+                                reactNativeContext.getCurrentActivity(),
+                                new String[]{Manifest.permission.RECORD_AUDIO},
+                                AUDIO_PERMISSIONS_REQUEST);
+                    }
+                } else if (permission.equals(PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID)) {
+                    int permissionCheck = ContextCompat.checkSelfPermission(
+                            reactNativeContext.getCurrentActivity(),
+                            Manifest.permission.MEDIA_CONTENT_CONTROL
+                    );
+                    if (permissionCheck == PackageManager.PERMISSION_GRANTED) {
+                        request.grant(request.getResources());
+                    } else {
+                        permissionRequest.put(MEDIA_ID_PERMISSIONS_REQUEST, request);
+                        ActivityCompat.requestPermissions(
+                                reactNativeContext.getCurrentActivity(),
+                                new String[]{Manifest.permission.MEDIA_CONTENT_CONTROL},
+                                MEDIA_ID_PERMISSIONS_REQUEST);
+                    }
+                }
+            }
+        }
+    }
+
+    public static void grantAccess(int requestCode) {
+        PermissionRequest request = permissionRequest.get(requestCode);
+        if (request != null) {
+            request.grant(request.getResources());
+            permissionRequest.put(requestCode, null);
         }
     }
 
