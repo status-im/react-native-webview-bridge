@@ -214,6 +214,13 @@ var WKWebView = createReactClass({
         }
     },
 
+    componentWillUnmount: function() {
+      console.log("webviewUNMOUNT " + this.props.source)
+      this.props.source = null;
+      this = null;
+      console.log("webviewUNMOUNTthis " + this)
+    },
+
     render() {
         var otherView = null;
 
