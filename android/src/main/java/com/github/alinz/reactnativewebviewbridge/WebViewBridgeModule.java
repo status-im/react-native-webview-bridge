@@ -1,34 +1,52 @@
 package com.github.alinz.reactnativewebviewbridge;
 
-import com.facebook.react.bridge.ReactApplicationContext;
-import com.facebook.react.bridge.ReactContextBaseJavaModule;
-import com.facebook.react.bridge.ActivityEventListener;
-
-import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.ClipData;
 import android.content.Intent;
 import android.net.Uri;
-import android.os.Build;
+import android.support.annotation.VisibleForTesting;
 import android.webkit.ValueCallback;
-import android.util.Log;
 
-import com.facebook.react.common.annotations.VisibleForTesting;
+import com.facebook.react.bridge.ActivityEventListener;
+import com.facebook.react.bridge.Callback;
+import com.facebook.react.bridge.ReactApplicationContext;
+import com.facebook.react.bridge.ReactContextBaseJavaModule;
+import com.facebook.react.bridge.ReactMethod;
 
-public class WebViewModule extends ReactContextBaseJavaModule implements ActivityEventListener {
+import javax.annotation.Nullable;
+
+public class WebViewBridgeModule extends ReactContextBaseJavaModule implements ActivityEventListener {
+
     public ValueCallback<Uri[]> callback;
 
     @VisibleForTesting
-    public static final String REACT_CLASS = "AndroidWebViewModule";
+    public static final String REACT_CLASS = "WebViewBridgeModule";
 
-    public WebViewModule(ReactApplicationContext context){
-        super(context);
-        context.addActivityEventListener(this);
+    WebViewBridgeModule(ReactApplicationContext reactContext) {
+        super(reactContext);
+        reactContext.addActivityEventListener(this);
     }
 
     @Override
-    public String getName(){
+    public String getName() {
         return REACT_CLASS;
+    }
+
+    private static String currentDapp;
+
+    @ReactMethod
+    public void setCurrentDapp(String dappName, Callback callback) {
+        currentDapp = dappName;
+
+        callback.invoke();
+    }
+
+    public static void setCurrentDapp(@Nullable String dappName) {
+        currentDapp = dappName;
+    }
+
+    public static String getCurrentDapp() {
+        return currentDapp;
     }
 
     @SuppressWarnings("unused")

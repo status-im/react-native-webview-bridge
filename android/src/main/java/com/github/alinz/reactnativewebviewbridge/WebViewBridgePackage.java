@@ -15,7 +15,7 @@ public class WebViewBridgePackage implements ReactPackage {
 
     private boolean debug;
     Function<String, String> callRPC;
-    private WebViewModule module;
+    private WebViewBridgeModule module;
 
     public WebViewBridgePackage(boolean debug, Function<String, String> callRPC) {
         this.debug = debug;
@@ -25,7 +25,7 @@ public class WebViewBridgePackage implements ReactPackage {
     @Override
     public List<NativeModule> createNativeModules(ReactApplicationContext reactApplicationContext) {
         List<NativeModule> modules = new ArrayList<>();
-        module = new WebViewModule(reactApplicationContext);
+        module = new WebViewBridgeModule(reactApplicationContext);
         modules.add(module);
         return modules;
     }
@@ -41,7 +41,7 @@ public class WebViewBridgePackage implements ReactPackage {
     }
 
 
-    public WebViewModule getModule(){
+    public WebViewBridgeModule getModule(){
         return module;
     }
 

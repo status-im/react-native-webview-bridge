@@ -232,10 +232,10 @@ public class WebViewBridgeManager extends ReactWebViewManager {
     }
 
     public static Boolean urlStringLooksInvalid(String urlString) {
-        return urlString == null || 
-               urlString.trim().equals("") || 
-               !(urlString.startsWith("http") && !urlString.startsWith("www")) || 
-               urlString.contains("|"); 
+        return urlString == null ||
+               urlString.trim().equals("") ||
+               !(urlString.startsWith("http") && !urlString.startsWith("www")) ||
+               urlString.contains("|");
     }
 
     public static Boolean responseRequiresJSInjection(Response response) {
@@ -303,9 +303,22 @@ public class WebViewBridgeManager extends ReactWebViewManager {
 
     static String userAgent = "";
 
+    Map<String, ReactWebView> webviews = new HashMap<>();
+
     @Override
     protected WebView createViewInstance(ThemedReactContext reactContext) {
-        final ReactWebView webView = new ReactWebView(reactContext);
+        final ReactWebView webView;
+        String currentDapp = WebViewBridgeModule.getCurrentDapp();
+        if(currentDapp != null) {
+            if(!webviews.containsKey(currentDapp)) {
+                ReactWebView newWebView = new ReactWebView(reactContext);
+                webviews.put(currentDapp, newWebView);
+            }
+            webView = webviews.get(WebViewBridgeModule.getCurrentDapp());
+        } else {
+            webView = new ReactWebView(reactContext);
+        }
+
         userAgent = webView.getSettings().getUserAgentString();
         reactContext.addLifecycleEventListener(webView);
 
@@ -687,8 +700,9 @@ public class WebViewBridgeManager extends ReactWebViewManager {
     @Override
     public void onDropViewInstance(WebView webView) {
         //super.onDropViewInstance(webView);
-        ((ThemedReactContext) webView.getContext()).removeLifecycleEventListener((ReactWebView) webView);
-        ((ReactWebView) webView).cleanupCallbacksAndDestroy();
+        //((ThemedReactContext) webView.getContext()).removeLifecycleEventListener((ReactWebView) webView);
+        //((ReactWebView) webView).cleanupCallbacksAndDestroy();
+        WebViewBridgeModule.setCurrentDapp(null);
     }
 
     protected static void dispatchEvent(WebView webView, Event event) {
