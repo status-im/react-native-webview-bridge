@@ -1,6 +1,7 @@
 package com.github.alinz.reactnativewebviewbridge;
 
 import android.Manifest;
+import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
@@ -25,6 +26,7 @@ import com.facebook.react.views.webview.events.TopLoadingErrorEvent;
 import com.facebook.react.views.webview.events.TopLoadingFinishEvent;
 import com.facebook.react.views.webview.events.TopLoadingStartEvent;
 import com.facebook.react.views.webview.events.TopMessageEvent;
+import com.facebook.react.bridge.ActivityEventListener;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.OkHttpClient.Builder;
@@ -67,11 +69,13 @@ public class WebViewBridgeManager extends ReactWebViewManager {
     private OkHttpClient httpClient;
     private static boolean debug;
     Function<String, String> callRPC;
+    private WebViewBridgePackage pkg;
 
-    public WebViewBridgeManager(ReactApplicationContext context, boolean debug, Function<String, String> callRPC) {
+    public WebViewBridgeManager(ReactApplicationContext context, boolean debug, Function<String, String> callRPC, WebViewBridgePackage pkg) {
         this.reactNativeContext = context;
         this.debug = debug;
         this.callRPC = callRPC;
+        this.pkg = pkg;
         Builder b = new Builder();
         httpClient = b
                 .followRedirects(false)
@@ -105,6 +109,28 @@ public class WebViewBridgeManager extends ReactWebViewManager {
 
         String origin;
         GeolocationPermissions.Callback callback;
+        WebViewBridgePackage pkg;
+
+        public ReactWebChromeClient(WebViewBridgePackage pkg) {
+            this.pkg = pkg;
+        }
+
+        public boolean onShowFileChooser (WebView webView, ValueCallback<Uri[]> filePathCallback, WebChromeClient.FileChooserParams fileChooserParams) {
+            pkg.getModule().callback = filePathCallback;
+            openFileChooserView();
+            return true;
+        }
+
+        private void openFileChooserView(){
+            try {
+                final Intent galleryIntent = new Intent(Intent.ACTION_PICK);
+                galleryIntent.setType("image/*");
+                final Intent chooserIntent = Intent.createChooser(galleryIntent, "choose file");
+                this.pkg.getModule().getActivity().startActivityForResult(chooserIntent, 1);
+            } catch (Exception e) {
+                Log.d("customwebview", e.toString());
+            }
+        }
 
         @Override
         public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
@@ -207,6 +233,7 @@ public class WebViewBridgeManager extends ReactWebViewManager {
         final ReactWebView webView = new ReactWebView(reactContext);
         userAgent = webView.getSettings().getUserAgentString();
         reactContext.addLifecycleEventListener(webView);
+
         mWebViewConfig.configWebView(webView);
         webView.getSettings().setBuiltInZoomControls(true);
         webView.getSettings().setDisplayZoomControls(false);
@@ -224,7 +251,7 @@ public class WebViewBridgeManager extends ReactWebViewManager {
             WebView.setWebContentsDebuggingEnabled(true);
         }
 
-        ReactWebChromeClient client = new ReactWebChromeClient();
+        ReactWebChromeClient client = new ReactWebChromeClient(pkg);
         webView.setWebChromeClient(client);
         webView.setWebViewClient(new ReactWebViewClient());
         webView.addJavascriptInterface(new JavascriptBridge(webView), "WebViewBridge");
