@@ -39,6 +39,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.Charset;
+import java.net.HttpURLConnection;
 import java.util.HashMap;
 import java.util.Map;
 import im.status.ethereum.function.Function;
@@ -52,6 +53,10 @@ public class WebViewBridgeManager extends ReactWebViewManager {
     private static final String REACT_CLASS = "RCTWebViewBridge";
     private static final String BRIDGE_NAME = "__REACT_WEB_VIEW_BRIDGE";
 
+    public final static String HEADER_CONTENT_TYPE = "content-type";
+
+    private static final String MIME_TEXT_HTML = "text/html";
+    private static final String MIME_UNKNOWN = "application/octet-stream";
 
     private static final int COMMAND_SEND_TO_BRIDGE = 101;
     public static final int GEO_PERMISSIONS_GRANTED = 103;
@@ -226,6 +231,76 @@ public class WebViewBridgeManager extends ReactWebViewManager {
         }
     }
 
+    public static Boolean urlStringLooksInvalid(String urlString) {
+        return urlString == null || 
+               urlString.trim().equals("") || 
+               !(urlString.startsWith("http") && !urlString.startsWith("www")) || 
+               urlString.contains("|"); 
+    }
+
+    public static Boolean responseRequiresJSInjection(Response response) {
+        // we don't want to inject JS into redirects
+        if (response.isRedirect()) {
+            return false;
+        }
+
+        // ...okhttp appends charset to content type sometimes, like "text/html; charset=UTF8"
+        final String contentTypeAndCharset = response.header(HEADER_CONTENT_TYPE, MIME_UNKNOWN);
+        // ...and we only want to inject it in to HTML, really
+        return contentTypeAndCharset.startsWith(MIME_TEXT_HTML);
+    }
+
+    public WebResourceResponse shouldInterceptRequest(WebResourceRequest request, Boolean onlyMainFrame, ReactWebView webView) {
+        Uri url = request.getUrl();
+        String urlStr = url.toString();
+
+        Log.d(TAG, "new request ");
+        Log.d(TAG, "url " + urlStr);
+        Log.d(TAG, "host " + request.getUrl().getHost());
+        Log.d(TAG, "path " + request.getUrl().getPath());
+        Log.d(TAG, "main " + request.isForMainFrame());
+        Log.d(TAG, "headers " + request.getRequestHeaders().toString());
+        Log.d(TAG, "method " + request.getMethod());
+
+        if (onlyMainFrame && !request.isForMainFrame()) {
+            return null;
+        }
+
+        if (WebViewBridgeManager.urlStringLooksInvalid(urlStr)) {
+            return null;
+        }
+
+        try {
+            Request req = new Request.Builder()
+                    .url(urlStr)
+                    .header("User-Agent", userAgent)
+                    .build();
+
+            Response response = httpClient.newCall(req).execute();
+
+            Log.d(TAG, "response headers " + response.headers().toString());
+            Log.d(TAG, "response code " + response.code());
+            Log.d(TAG, "response suc " + response.isSuccessful());
+
+            if (!WebViewBridgeManager.responseRequiresJSInjection(response)) {
+                return null;
+            }
+
+            InputStream is = response.body().byteStream();
+            MediaType contentType = response.body().contentType();
+            Charset charset = contentType != null ? contentType.charset(UTF_8) : UTF_8;
+
+            if (response.code() == HttpURLConnection.HTTP_OK) {
+                is = new InputStreamWithInjectedJS(is, webView.injectedOnStartLoadingJS, charset);
+            }
+
+            Log.d(TAG, "inject our custom JS to this request");
+            return new WebResourceResponse("text/html", charset.name(), is);
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
     static String userAgent = "";
 
     @Override
@@ -264,37 +339,15 @@ public class WebViewBridgeManager extends ReactWebViewManager {
             swController.setServiceWorkerClient(new ServiceWorkerClient() {
                 @Override
                 public WebResourceResponse shouldInterceptRequest(WebResourceRequest request) {
-                    Uri url = request.getUrl();
-                    String urlStr = url.toString();
-
-                    if (urlStr == null || urlStr.trim().equals("") || !(urlStr.startsWith("http") && !urlStr.startsWith("www")) || urlStr.contains("|")) {
-                        return super.shouldInterceptRequest(request);
+                    Log.d(TAG, "shouldInterceptRequest / ServiceWorkerClient");
+                    WebResourceResponse response = WebViewBridgeManager.this.shouldInterceptRequest(request, false, webView);
+                    if (response != null) {
+                        Log.d(TAG, "shouldInterceptRequest / ServiceWorkerClient -> return intersept response");
+                        return response;
                     }
 
-                    try {
-                        Request req = new Request.Builder()
-                                .url(urlStr)
-                                .header("User-Agent", userAgent)
-                                .build();
-
-                        Response response = httpClient.newCall(req).execute();
-
-                        if (response.isRedirect() || !response.headers("Content-Type").get(0).equals("text/html")) {
-                            return super.shouldInterceptRequest(request);
-                        }
-
-                        InputStream is = response.body().byteStream();
-                        MediaType contentType = response.body().contentType();
-                        Charset charset = contentType != null ? contentType.charset(UTF_8) : UTF_8;
-
-                        if (response.code() == 200) {
-                            is = new InputStreamWithInjectedJS(is, ((ReactWebView) webView).injectedOnStartLoadingJS, charset);
-                        }
-
-                        return new WebResourceResponse("text/html", charset.name(), is);
-                    } catch (IOException e) {
-                        return new WebResourceResponse("text/html", "UTF-8", null);
-                    }
+                    Log.d(TAG, "shouldInterceptRequest / ServiceWorkerClient -> intercept response is nil, delegating up");
+                    return super.shouldInterceptRequest(request);
                 }
             });
         }
@@ -619,43 +672,15 @@ public class WebViewBridgeManager extends ReactWebViewManager {
 
         @Override
         public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
-            String urlStr = request.getUrl().toString();
-            Uri url = request.getUrl();
-            Log.d(TAG, "\nnew request ");
-            Log.d(TAG, "url " + urlStr);
-            Log.d(TAG, "host " + request.getUrl().getHost());
-            Log.d(TAG, "path " + request.getUrl().getPath());
-            Log.d(TAG, "main " + request.isForMainFrame());
-            Log.d(TAG, "headers " + request.getRequestHeaders().toString());
-            Log.d(TAG, "method " + request.getMethod());
-            if (!request.isForMainFrame() || urlStr == null || urlStr.trim().equals("") || !(urlStr.startsWith("http") && !urlStr.startsWith("www")) || urlStr.contains("|")) {
-                return super.shouldInterceptRequest(view, request);
+            Log.d(TAG, "shouldInterceptRequest / WebViewClient");
+            WebResourceResponse response = WebViewBridgeManager.this.shouldInterceptRequest(request, true, (ReactWebView)view);
+            if (response != null) {
+                Log.d(TAG, "shouldInterceptRequest / WebViewClient -> return intercept response");
+                return response;
             }
 
-            try {
-                Request req = new Request.Builder()
-                        .url(urlStr)
-                        .header("User-Agent", userAgent)
-                        .build();
-
-                Response response = httpClient.newCall(req).execute();
-                Log.d(TAG, "response headers " + response.headers().toString());
-                Log.d(TAG, "response code " + response.code());
-                Log.d(TAG, "response suc " + response.isSuccessful());
-
-                if (response.isRedirect()) {
-                    return super.shouldInterceptRequest(view, request);
-                }
-                InputStream is = response.body().byteStream();
-                MediaType contentType = response.body().contentType();
-                Charset charset = contentType != null ? contentType.charset(UTF_8) : UTF_8;
-                if (response.code() == 200) {
-                    is = new InputStreamWithInjectedJS(is, ((ReactWebView) view).injectedOnStartLoadingJS, charset);
-                }
-                return new WebResourceResponse("text/html", charset.name(), is);
-            } catch (IOException e) {
-                return new WebResourceResponse("text/html", "UTF-8", null);
-            }
+            Log.d(TAG, "shouldInterceptRequest / WebViewClient -> intercept response is nil, delegating up");
+            return super.shouldInterceptRequest(view, request);
         }
     }
 
