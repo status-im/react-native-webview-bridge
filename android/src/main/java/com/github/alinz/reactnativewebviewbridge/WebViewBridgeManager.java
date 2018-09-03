@@ -1,7 +1,6 @@
 package com.github.alinz.reactnativewebviewbridge;
 
 import android.Manifest;
-import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
@@ -26,7 +25,7 @@ import com.facebook.react.views.webview.events.TopLoadingErrorEvent;
 import com.facebook.react.views.webview.events.TopLoadingFinishEvent;
 import com.facebook.react.views.webview.events.TopLoadingStartEvent;
 import com.facebook.react.views.webview.events.TopMessageEvent;
-import com.facebook.react.bridge.ActivityEventListener;
+
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.OkHttpClient.Builder;
@@ -271,12 +270,13 @@ public class WebViewBridgeManager extends ReactWebViewManager {
         }
 
         try {
-            Request req = new Request.Builder()
-                    .url(urlStr)
-                    .header("User-Agent", userAgent)
-                    .build();
-
-            Response response = httpClient.newCall(req).execute();
+            Request.Builder requestBuilder = new Request.Builder().url(urlStr);
+            Map<String, String> requestHeaders = request.getRequestHeaders();
+            for(String header: requestHeaders.keySet()) {
+                requestBuilder.header(header, requestHeaders.get(header));
+            }
+            Request httpRequest = requestBuilder.build();
+            Response response = httpClient.newCall(httpRequest).execute();
 
             Log.d(TAG, "response headers " + response.headers().toString());
             Log.d(TAG, "response code " + response.code());
@@ -295,7 +295,25 @@ public class WebViewBridgeManager extends ReactWebViewManager {
             }
 
             Log.d(TAG, "inject our custom JS to this request");
-            return new WebResourceResponse("text/html", charset.name(), is);
+
+            Map<String, String> responseHeaders = new HashMap<>();
+            for (String hname: response.headers().names()) {
+                Log.d(TAG, "HEAD " + hname + " " + response.headers().get(hname));
+                responseHeaders.put(hname, response.headers().get(hname));
+            }
+
+            //https://stackoverflow.com/questions/1652850/android-webview-cookie-problem
+            if(responseHeaders.containsKey("Set-Cookie")) {
+                CookieSyncManager cm = CookieSyncManager.createInstance(webView.getContext());
+                CookieManager cookieManager = CookieManager.getInstance();
+                cookieManager.removeSessionCookie();
+                String cookieString = responseHeaders.get("Set-Cookie");
+                cookieManager.setCookie(request.getUrl().getHost(), cookieString);
+                CookieSyncManager.getInstance().sync();
+            }
+
+
+            return new WebResourceResponse("text/html", charset.name(), response.code(), "phrase", responseHeaders, is);
         } catch (IOException e) {
             return null;
         }
