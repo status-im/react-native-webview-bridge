@@ -34,7 +34,7 @@ repositories {
 }
 
 dependencies {
-    compile 'status-im:function:0.0.1'
+    compile 'com.github.status-im:function:0.0.1'
     compile 'com.facebook.react:react-native:+'
     implementation "com.android.support:appcompat-v7:26.1.0"
 }
