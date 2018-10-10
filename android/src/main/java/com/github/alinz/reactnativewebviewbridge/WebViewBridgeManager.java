@@ -290,7 +290,8 @@ public class WebViewBridgeManager extends ReactWebViewManager {
             MediaType contentType = response.body().contentType();
             Charset charset = contentType != null ? contentType.charset(UTF_8) : UTF_8;
 
-            if (response.code() == HttpURLConnection.HTTP_OK) {
+            if (response.code() == HttpURLConnection.HTTP_OK ||
+                    response.headers().get("content-type").toLowerCase().equals(MIME_TEXT_HTML)) {
                 is = new InputStreamWithInjectedJS(is, webView.injectedOnStartLoadingJS, charset);
             }
 
