@@ -10,7 +10,7 @@
 #import "React/RCTUtils.h"
 #import "React/RCTView.h"
 #import "React/UIView+React.h"
-#import <Statusgo/Statusgo.h>
+#import "Statusgo/Statusgo.h"
 
 //This is a very elegent way of defining multiline string in objective-c.
 //source: http://stackoverflow.com/a/23387659/828487
@@ -126,8 +126,7 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
         NSString *host = [responseDic objectForKey:@"host"];
         NSString *payload = [responseDic objectForKey:@"payload"];
 
-        char *result = CallRPC((char *) [payload UTF8String]);
-        NSString *response = [NSString stringWithUTF8String: result];
+        NSString *response = StatusgoCallRPC(payload);
         NSString *trimmedResponse = [response stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
 
         NSString *format = @"httpCallback('%@', '%@');";
