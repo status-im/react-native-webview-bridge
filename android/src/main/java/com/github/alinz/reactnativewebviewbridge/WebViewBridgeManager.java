@@ -261,6 +261,13 @@ public class WebViewBridgeManager extends ReactWebViewManager {
         Log.d(TAG, "headers " + request.getRequestHeaders().toString());
         Log.d(TAG, "method " + request.getMethod());
 
+        String host = url.getHost();
+        if (host.contains(" ")) {
+            String currentHost = host.replace(" ", "%20");
+            String newHost = host.replace(" ", "");
+            urlStr = urlStr.replace(currentHost, newHost);
+        }
+
         if (onlyMainFrame && !request.isForMainFrame()) {
             return null;
         }
@@ -316,6 +323,9 @@ public class WebViewBridgeManager extends ReactWebViewManager {
 
             return new WebResourceResponse("text/html", charset.name(), response.code(), "phrase", responseHeaders, is);
         } catch (IOException e) {
+            return null;
+        } catch (Exception e) {
+            Log.d(TAG, "exception requesting url: " + e.toString(), e);
             return null;
         }
     }
