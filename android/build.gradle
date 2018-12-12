@@ -17,7 +17,10 @@ def safeExtGet(prop, fallback) {
 android {
     compileSdkVersion 26
     buildToolsVersion "26.0.2"
-
+    compileOptions {
+        sourceCompatibility 1.8
+        targetCompatibility 1.8
+    }
     defaultConfig {
         minSdkVersion 16
         targetSdkVersion 23
