@@ -29,6 +29,7 @@ import com.facebook.react.views.webview.events.TopMessageEvent;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.OkHttpClient.Builder;
+import okhttp3.HttpUrl;
 import okhttp3.Request;
 import okhttp3.Response;
 import org.json.JSONException;
@@ -231,10 +232,7 @@ public class WebViewBridgeManager extends ReactWebViewManager {
     }
 
     public static Boolean urlStringLooksInvalid(String urlString) {
-        return urlString == null ||
-               urlString.trim().equals("") ||
-               !(urlString.startsWith("http") && !urlString.startsWith("www")) ||
-               urlString.contains("|");
+        return urlString == null || HttpUrl.parse(urlString) == null;
     }
 
     public static Boolean responseRequiresJSInjection(Response response) {
