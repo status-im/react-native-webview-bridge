@@ -267,55 +267,66 @@ public class WebViewBridgeManager extends ReactWebViewManager {
             return null;
         }
 
+        Response response = null;
+
         try {
             Request.Builder requestBuilder = new Request.Builder().url(urlStr);
+
             Map<String, String> requestHeaders = request.getRequestHeaders();
             for(String header: requestHeaders.keySet()) {
                 requestBuilder.header(header, requestHeaders.get(header));
             }
+
             Request httpRequest = requestBuilder.build();
-            Response response = httpClient.newCall(httpRequest).execute();
+            response = httpClient.newCall(httpRequest).execute();
 
-            Log.d(TAG, "response headers " + response.headers().toString());
-            Log.d(TAG, "response code " + response.code());
-            Log.d(TAG, "response suc " + response.isSuccessful());
-
-            if (!WebViewBridgeManager.responseRequiresJSInjection(response)) {
-                return null;
-            }
-
-            InputStream is = response.body().byteStream();
-            MediaType contentType = response.body().contentType();
-            Charset charset = contentType != null ? contentType.charset(UTF_8) : UTF_8;
-
-            if (response.code() == HttpURLConnection.HTTP_OK ||
-                    response.headers().get("content-type").toLowerCase().equals(MIME_TEXT_HTML)) {
-                is = new InputStreamWithInjectedJS(is, webView.injectedOnStartLoadingJS, charset);
-            }
-
-            Log.d(TAG, "inject our custom JS to this request");
-
-            Map<String, String> responseHeaders = new HashMap<>();
-            for (String hname: response.headers().names()) {
-                Log.d(TAG, "HEAD " + hname + " " + response.headers().get(hname));
-                responseHeaders.put(hname, response.headers().get(hname));
-            }
-
-            //https://stackoverflow.com/questions/1652850/android-webview-cookie-problem
-            if(responseHeaders.containsKey("Set-Cookie")) {
-                CookieSyncManager cm = CookieSyncManager.createInstance(webView.getContext());
-                CookieManager cookieManager = CookieManager.getInstance();
-                cookieManager.removeSessionCookie();
-                String cookieString = responseHeaders.get("Set-Cookie");
-                cookieManager.setCookie(request.getUrl().getHost(), cookieString);
-                CookieSyncManager.getInstance().sync();
-            }
-
-
-            return new WebResourceResponse("text/html", charset.name(), response.code(), "phrase", responseHeaders, is);
-        } catch (IOException e) {
+        } catch (Exception e) {
+            Log.w(TAG, "error executing URL, ignoring: " + urlStr);
             return null;
         }
+
+        if (response == null) {
+            Log.w(TAG, "unexpected nil response when executing URL, ignoring: " + urlStr);
+            return null;
+        }
+
+        Log.d(TAG, "response headers " + response.headers().toString());
+        Log.d(TAG, "response code " + response.code());
+        Log.d(TAG, "response suc " + response.isSuccessful());
+
+        if (!WebViewBridgeManager.responseRequiresJSInjection(response)) {
+            return null;
+        }
+
+        InputStream is = response.body().byteStream();
+        MediaType contentType = response.body().contentType();
+        Charset charset = contentType != null ? contentType.charset(UTF_8) : UTF_8;
+
+        if (response.code() == HttpURLConnection.HTTP_OK ||
+                response.headers().get("content-type").toLowerCase().equals(MIME_TEXT_HTML)) {
+            is = new InputStreamWithInjectedJS(is, webView.injectedOnStartLoadingJS, charset);
+        }
+
+        Log.d(TAG, "inject our custom JS to this request");
+
+        Map<String, String> responseHeaders = new HashMap<>();
+        for (String hname: response.headers().names()) {
+            Log.d(TAG, "HEAD " + hname + " " + response.headers().get(hname));
+            responseHeaders.put(hname, response.headers().get(hname));
+        }
+
+        //https://stackoverflow.com/questions/1652850/android-webview-cookie-problem
+        if(responseHeaders.containsKey("Set-Cookie")) {
+            CookieSyncManager cm = CookieSyncManager.createInstance(webView.getContext());
+            CookieManager cookieManager = CookieManager.getInstance();
+            cookieManager.removeSessionCookie();
+            String cookieString = responseHeaders.get("Set-Cookie");
+            cookieManager.setCookie(request.getUrl().getHost(), cookieString);
+            CookieSyncManager.getInstance().sync();
+        }
+
+
+        return new WebResourceResponse("text/html", charset.name(), response.code(), "phrase", responseHeaders, is);
     }
 
     static String userAgent = "";
