@@ -20,7 +20,7 @@ import resolveAssetSource from 'react-native/Libraries/Image/resolveAssetSource'
 import deprecatedPropType from 'react-native/Libraries/Utilities/deprecatedPropType';
 import invariant from 'fbjs/lib/invariant';
 import keyMirror from 'fbjs/lib/keyMirror';
-var WKWebViewManager = NativeModules.WKWebViewManager;
+var WKWebViewManager = NativeModules.StatusWKWebViewManager;
 
 var BGWASH = 'rgba(255,255,255,0.8)';
 var RCT_WEBVIEW_REF = 'webview';
@@ -44,31 +44,31 @@ const JSNavigationScheme = 'react-js-navigation';
 
 type ErrorEvent = {
     domain: any;
-    code: any;
-    description: any;
+code: any;
+description: any;
 }
 
 type Event = Object;
 
 var defaultRenderLoading = () => (
     <View style={styles.loadingView}>
-        <ActivityIndicatorIOS />
+    <ActivityIndicatorIOS />
     </View>
 );
 var defaultRenderError = (errorDomain, errorCode, errorDesc) => (
     <View style={styles.errorContainer}>
-        <Text style={styles.errorTextTitle}>
-            Error loading page
-        </Text>
-        <Text style={styles.errorText}>
-            {'Domain: ' + errorDomain}
-        </Text>
-        <Text style={styles.errorText}>
-            {'Error Code: ' + errorCode}
-        </Text>
-        <Text style={styles.errorText}>
-            {'Description: ' + errorDesc}
-        </Text>
+    <Text style={styles.errorTextTitle}>
+    Error loading page
+</Text>
+<Text style={styles.errorText}>
+    {'Domain: ' + errorDomain}
+    </Text>
+    <Text style={styles.errorText}>
+    {'Error Code: ' + errorCode}
+    </Text>
+    <Text style={styles.errorText}>
+    {'Description: ' + errorDesc}
+    </Text>
     </View>
 );
 
@@ -232,7 +232,7 @@ var WKWebView = createReactClass({
             );
         } else if (this.state.viewState !== WebViewState.IDLE) {
             console.error(
-                'RCTWKWebView invalid state encountered: ' + this.state.loading
+                'StatusWKWebView invalid state encountered: ' + this.state.loading
             );
         }
 
@@ -244,10 +244,10 @@ var WKWebView = createReactClass({
         }
 
         var onShouldStartLoadWithRequest = this.props.onShouldStartLoadWithRequest && ((event: Event) => {
-                var shouldStart = this.props.onShouldStartLoadWithRequest &&
-                    this.props.onShouldStartLoadWithRequest(event.nativeEvent);
-                WKWebViewManager.startLoadWithResult(!!shouldStart, event.nativeEvent.lockIdentifier);
-            });
+            var shouldStart = this.props.onShouldStartLoadWithRequest &&
+                this.props.onShouldStartLoadWithRequest(event.nativeEvent);
+            WKWebViewManager.startLoadWithResult(!!shouldStart, event.nativeEvent.lockIdentifier);
+        });
 
         var source = this.props.source || {};
         if (this.props.html) {
@@ -257,33 +257,33 @@ var WKWebView = createReactClass({
         }
 
         var webView =
-            <RCTWKWebView
-                ref={RCT_WEBVIEW_REF}
-                key="webViewKey"
-                style={webViewStyles}
-                source={resolveAssetSource(source)}
-                injectedJavaScript={this.props.injectedJavaScript}
-                injectedOnStartLoadingJavaScript={this.props.injectedOnStartLoadingJavaScript}
-                bounces={this.props.bounces}
-                scrollEnabled={this.props.scrollEnabled}
-                contentInset={this.props.contentInset}
-                automaticallyAdjustContentInsets={this.props.automaticallyAdjustContentInsets}
-                sendCookies={this.props.sendCookies}
-                onLoadingStart={this._onLoadingStart}
-                onLoadingFinish={this._onLoadingFinish}
-                onLoadingError={this._onLoadingError}
-                onProgress={this._onProgress}
-                onMessage={this._onMessage}
-                onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
-                onBridgeMessage={this._onBridgeMessageHandler}
-            />;
+    <StatusWKWebView
+        ref={RCT_WEBVIEW_REF}
+        key="webViewKey"
+        style={webViewStyles}
+        source={resolveAssetSource(source)}
+        injectedJavaScript={this.props.injectedJavaScript}
+        injectedOnStartLoadingJavaScript={this.props.injectedOnStartLoadingJavaScript}
+        bounces={this.props.bounces}
+        scrollEnabled={this.props.scrollEnabled}
+        contentInset={this.props.contentInset}
+        automaticallyAdjustContentInsets={this.props.automaticallyAdjustContentInsets}
+        sendCookies={this.props.sendCookies}
+        onLoadingStart={this._onLoadingStart}
+        onLoadingFinish={this._onLoadingFinish}
+        onLoadingError={this._onLoadingError}
+        onProgress={this._onProgress}
+        onMessage={this._onMessage}
+        onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+        onBridgeMessage={this._onBridgeMessageHandler}
+        />;
 
         return (
             <View style={styles.container}>
-                {webView}
-                {otherView}
-            </View>
-        );
+            {webView}
+        {otherView}
+    </View>
+    );
     },
 
     /**
@@ -292,7 +292,7 @@ var WKWebView = createReactClass({
     goForward: function() {
         UIManager.dispatchViewManagerCommand(
             this.getWebViewHandle(),
-            UIManager.RCTWKWebView.Commands.goForward,
+            UIManager.StatusWKWebView.Commands.goForward,
             null
         );
     },
@@ -303,7 +303,7 @@ var WKWebView = createReactClass({
     goBack: function() {
         UIManager.dispatchViewManagerCommand(
             this.getWebViewHandle(),
-            UIManager.RCTWKWebView.Commands.goBack,
+            UIManager.StatusWKWebView.Commands.goBack,
             null
         );
     },
@@ -314,7 +314,7 @@ var WKWebView = createReactClass({
     reload: function() {
         UIManager.dispatchViewManagerCommand(
             this.getWebViewHandle(),
-            UIManager.RCTWKWebView.Commands.reload,
+            UIManager.StatusWKWebView.Commands.reload,
             null
         );
     },
@@ -394,7 +394,7 @@ var WKWebView = createReactClass({
     },
 });
 
-var RCTWKWebView = requireNativeComponent('RCTWKWebView', WKWebView, {
+var StatusWKWebView = requireNativeComponent('StatusWKWebView', WKWebView, {
     nativeOnly: {
         onLoadingStart: true,
         onLoadingError: true,

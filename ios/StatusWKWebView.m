@@ -1,4 +1,4 @@
-#import "RCTWKWebView.h"
+#import "StatusWKWebView.h"
 
 #import <WebKit/WebKit.h>
 #import <UIKit/UIKit.h>
@@ -18,7 +18,7 @@
 
 NSString *const RCTWebViewBridgeSchema = @"wvb";
 
-@interface RCTWKWebView () <WKNavigationDelegate, RCTAutoInsetsProtocol, WKScriptMessageHandler, WKUIDelegate>
+@interface StatusWKWebView () <WKNavigationDelegate, RCTAutoInsetsProtocol, WKScriptMessageHandler, WKUIDelegate>
 
 @property (nonatomic, copy) RCTDirectEventBlock onLoadingStart;
 @property (nonatomic, copy) RCTDirectEventBlock onLoadingFinish;
@@ -30,7 +30,7 @@ NSString *const RCTWebViewBridgeSchema = @"wvb";
 
 @end
 
-@implementation RCTWKWebView
+@implementation StatusWKWebView
 {
     WKWebView *_webView;
     NSString *_injectedJavaScript;
@@ -40,22 +40,22 @@ NSString *const RCTWebViewBridgeSchema = @"wvb";
 {
     if ((self = [super initWithFrame:frame])) {
         super.backgroundColor = [UIColor clearColor];
-
+        
         _automaticallyAdjustContentInsets = YES;
         _contentInset = UIEdgeInsetsZero;
-
+        
         WKWebViewConfiguration* config = [[WKWebViewConfiguration alloc] init];
         WKUserContentController* userController = [[WKUserContentController alloc]init];
         [userController addScriptMessageHandler:self name:@"reactNative"];
         [userController addScriptMessageHandler:self name:@"sendRequest"];
         config.userContentController = userController;
-
+        
         WKUserScript* bridgeScript = [[WKUserScript alloc]
                                       initWithSource: [self webViewBridgeScript]
                                       injectionTime:WKUserScriptInjectionTimeAtDocumentStart
                                       forMainFrameOnly:NO];
         [config.userContentController addUserScript:bridgeScript];
-
+        
         _webView = [[WKWebView alloc] initWithFrame:self.bounds configuration:config];
         _webView.UIDelegate = self;
         _webView.navigationDelegate = self;
@@ -77,7 +77,7 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
             request = mutableRequest;
         }
     }
-
+    
     [_webView loadRequest:request];
 }
 
@@ -123,14 +123,13 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
         NSData *data = [body dataUsingEncoding:NSUTF8StringEncoding];
         NSDictionary *responseDic = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingMutableContainers error:nil];
         NSString *callbackId = [responseDic objectForKey:@"callbackId"];
-        NSString *host = [responseDic objectForKey:@"host"];
         NSString *payload = [responseDic objectForKey:@"payload"];
-
+        
         NSString *response = StatusgoCallRPC(payload);
         NSString *trimmedResponse = [response stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-
+        
         NSString *format = @"httpCallback('%@', '%@');";
-
+        
         NSString *command = [NSString stringWithFormat: format, callbackId, trimmedResponse];
         dispatch_async( dispatch_get_main_queue(), ^{
             [_webView evaluateJavaScript:command completionHandler:nil];
