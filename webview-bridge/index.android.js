@@ -15,6 +15,7 @@
 
 var React = require('react');
 var ReactNative = require('react-native');
+var { WebView } = require('react-native-webview');
 var invariant = require('invariant');
 var keyMirror = require('keymirror');
 var resolveAssetSource = require('react-native/Libraries/Image/resolveAssetSource');
@@ -27,7 +28,6 @@ var {
   StyleSheet,
   Text,
   View,
-  WebView,
   requireNativeComponent,
   DeviceEventEmitter,
   NativeModules: {

@@ -19,12 +19,12 @@ import com.facebook.react.uimanager.UIManagerModule;
 import com.facebook.react.uimanager.annotations.ReactProp;
 import com.facebook.react.uimanager.events.Event;
 import com.facebook.react.uimanager.events.EventDispatcher;
-import com.facebook.react.views.webview.ReactWebViewManager;
-import com.facebook.react.views.webview.WebViewConfig;
-import com.facebook.react.views.webview.events.TopLoadingErrorEvent;
-import com.facebook.react.views.webview.events.TopLoadingFinishEvent;
-import com.facebook.react.views.webview.events.TopLoadingStartEvent;
-import com.facebook.react.views.webview.events.TopMessageEvent;
+import com.reactnativecommunity.webview.RNCWebViewManager;
+import com.reactnativecommunity.webview.WebViewConfig;
+import com.reactnativecommunity.webview.events.TopLoadingErrorEvent;
+import com.reactnativecommunity.webview.events.TopLoadingFinishEvent;
+import com.reactnativecommunity.webview.events.TopLoadingStartEvent;
+import com.reactnativecommunity.webview.events.TopMessageEvent;
 
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
@@ -49,7 +49,7 @@ import android.support.v4.app.ActivityCompat;
 
 import static okhttp3.internal.Util.UTF_8;
 
-public class WebViewBridgeManager extends ReactWebViewManager {
+public class WebViewBridgeManager extends RNCWebViewManager {
     private static final String REACT_CLASS = "RCTWebViewBridge";
     private static final String BRIDGE_NAME = "__REACT_WEB_VIEW_BRIDGE";
 
@@ -569,7 +569,9 @@ public class WebViewBridgeManager extends ReactWebViewManager {
         }
 
         public void onMessage(String message) {
-            dispatchEvent(this, new TopMessageEvent(this.getId(), message));
+            WritableMap data = Arguments.createMap();
+            data.putString("data", message);
+            dispatchEvent(this, new TopMessageEvent(this.getId(), data));
         }
 
         private void cleanupCallbacksAndDestroy() {
