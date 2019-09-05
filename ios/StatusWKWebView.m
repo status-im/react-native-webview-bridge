@@ -16,6 +16,14 @@
 //source: http://stackoverflow.com/a/23387659/828487
 #define NSStringMultiline(...) [[NSString alloc] initWithCString:#__VA_ARGS__ encoding:NSUTF8StringEncoding]
 
+/**
+ * Special scheme used to pass messages to the injectedJavaScript
+ * code without triggering a page load. Usage:
+ *
+ *   window.location.href = RCTJSNavigationScheme + '://hello'
+ */
+NSString *const RCTJSNavigationScheme = @"react-js-navigation";
+
 NSString *const RCTWebViewBridgeSchema = @"wvb";
 
 @interface StatusWKWebView () <WKNavigationDelegate, RCTAutoInsetsProtocol, WKScriptMessageHandler, WKUIDelegate>

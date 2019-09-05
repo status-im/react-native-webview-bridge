@@ -2,14 +2,6 @@
 
 @class StatusWKWebView;
 
-/**
- * Special scheme used to pass messages to the injectedJavaScript
- * code without triggering a page load. Usage:
- *
- *   window.location.href = RCTJSNavigationScheme + '://hello'
- */
-extern NSString *const RCTJSNavigationScheme;
-
 @protocol RCTWKWebViewDelegate <NSObject>
 
 - (BOOL)webView:(StatusWKWebView *)webView
