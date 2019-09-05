@@ -42,7 +42,6 @@ import java.nio.charset.Charset;
 import java.net.HttpURLConnection;
 import java.util.HashMap;
 import java.util.Map;
-import im.status.ethereum.function.Function;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.app.ActivityCompat;
 
@@ -59,6 +58,7 @@ public class WebViewBridgeManager extends RNCWebViewManager {
     private static final String MIME_UNKNOWN = "application/octet-stream";
 
     private static final int COMMAND_SEND_TO_BRIDGE = 101;
+    private static final int RESET_OK_HTTP_CLIENT = 102;
     public static final int GEO_PERMISSIONS_GRANTED = 103;
     private static Map<Integer, PermissionRequest> permissionRequest;
 
@@ -73,13 +73,11 @@ public class WebViewBridgeManager extends RNCWebViewManager {
     private static ReactApplicationContext reactNativeContext;
     private OkHttpClient httpClient;
     private static boolean debug;
-    Function<String, String> callRPC;
     private WebViewBridgePackage pkg;
 
-    public WebViewBridgeManager(ReactApplicationContext context, boolean debug, Function<String, String> callRPC, WebViewBridgePackage pkg) {
+    public WebViewBridgeManager(ReactApplicationContext context, boolean debug, WebViewBridgePackage pkg) {
         this.reactNativeContext = context;
         this.debug = debug;
-        this.callRPC = callRPC;
         this.pkg = pkg;
         Builder b = new Builder();
         httpClient = b
@@ -105,6 +103,7 @@ public class WebViewBridgeManager extends RNCWebViewManager {
         Map<String, Integer> commandsMap = super.getCommandsMap();
 
         commandsMap.put("sendToBridge", COMMAND_SEND_TO_BRIDGE);
+        commandsMap.put("resetOkHttpClient", RESET_OK_HTTP_CLIENT);
         commandsMap.put("geoPermissionsGranted", GEO_PERMISSIONS_GRANTED);
 
         return commandsMap;
@@ -371,7 +370,7 @@ public class WebViewBridgeManager extends RNCWebViewManager {
         webView.setWebChromeClient(client);
         webView.setWebViewClient(new ReactWebViewClient());
         webView.addJavascriptInterface(new JavascriptBridge(webView), "WebViewBridge");
-        StatusBridge bridge = new StatusBridge(reactContext, webView, this.callRPC);
+        StatusBridge bridge = new StatusBridge(reactContext, webView);
         webView.addJavascriptInterface(bridge, "StatusBridge");
         webView.setStatusBridge(bridge);
 
@@ -404,6 +403,10 @@ public class WebViewBridgeManager extends RNCWebViewManager {
             case COMMAND_SEND_TO_BRIDGE:
                 sendToBridge(root, args.getString(0));
                 break;
+            case RESET_OK_HTTP_CLIENT:
+                ((ReactWebView) root).getStatusBridge().resetCleint();
+                break;
+
             case GEO_PERMISSIONS_GRANTED:
                 ((ReactWebChromeClient) ((ReactWebView) root).getWebChromeClient()).geoCallback();
                 break;
